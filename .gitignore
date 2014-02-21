@@ -1,4 +1,5 @@
 localize
+*.csv
 
 .DS_Store
 .gitattributes

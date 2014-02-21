@@ -81,10 +81,20 @@ func walkFunc(path string, info os.FileInfo, err error) error {
 	if info.IsDir() {
 		return nil
 	}
+	fileExtension := filepath.Ext(info.Name())
+	if len(fileExtension) == 0 {
+		return nil
+	}
+	fileExtension = fileExtension[1:]
 	for _, extension := range extensions {
-		if filepath.Ext(info.Name()) == extension {
-			if forceRescanFlag || info.ModTime().After(localizationModificationTime) {
+		if fileExtension == extension {
+			modified := info.ModTime().After(localizationModificationTime)
+			if forceRescanFlag || modified {
 				processFile(path)
+			} else {
+				if verboseFlag {
+					fmt.Printf("File %v was not modified.\n", path)
+				}
 			}
 		}
 	}
@@ -116,7 +126,7 @@ func processFileContents(fileContents string) {
 	}
 	if verboseFlag {
 		if len(matches) > 0 {
-			fmt.Printf("Parsed %d keys.", len(matches))
+			fmt.Printf("Parsed %d keys.\n", len(matches))
 		}
 	}
 }
@@ -128,11 +138,13 @@ func processKey(key string) {
 }
 
 func stripComments(fileContents string) string {
-	return stripCommentsRegexp.ReplaceAllString(fileContents, "")
+	result := stripCommentsRegexp.ReplaceAllString(fileContents, "")
+	fmt.Printf("====================================\n%v\n================================\n", result)
+	return result
 }
 
 func compileLocalizeRegexp() {
-	regexpString := fmt.Sprintf("%s\\s*\\(\\s*@\"(.*)\"\\s*\\)", localizeFunctionFlag)
+	regexpString := fmt.Sprintf("(?ms)%s\\s*\\(\\s*@\"(.*)\"\\s*(?:,\\s*[\\w]*|@\"(.*)\"\\s*)*\\s*\\)", localizeFunctionFlag)
 	localizeRegexp = regexp.MustCompile(regexpString)
 }
 
@@ -141,9 +153,10 @@ func compileStripCommentsRegexp() {
 }
 
 func loadLocalization(filePath string) {
+	localization = make(map[string][]string)
+
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return
 	}
 	defer file.Close()
@@ -169,7 +182,11 @@ func loadLocalization(filePath string) {
 	}
 
 	if verboseFlag {
-		fmt.Printf("Loaded %d keys from %s", filePath)
+		keysEnding := ""
+		if len(localization) > 1 {
+			keysEnding = "s"
+		}
+		fmt.Printf("Loaded %d key%s from %s\n", len(localization), keysEnding, filePath)
 	}
 }
 
@@ -187,9 +204,11 @@ func checkLocalization(keys []string, outputFilePath string) {
 	for i, key := range keys {
 		languageValues := localization[key]
 		if len(languageValues) > languagesCount {
-			fmt.Fprintf(os.Stderr, "%s:%d: warn : Key '%s' has more translations (%d) than languages specified (%d)\n", outputFilePath, i, len(languageValues), languagesCount)
+			fmt.Fprintf(os.Stderr, "%s:%d: warn : Key '%s' has more translations (%d) than languages specified (%d)\n",
+				outputFilePath, i, key, len(languageValues), languagesCount)
 		} else if len(languageValues) < languagesCount {
-			fmt.Fprintf(os.Stderr, "%s:%d: warn : Key '%s' has less translations (%d) than languages specified (%d)\n", outputFilePath, i, len(languageValues), languagesCount)
+			fmt.Fprintf(os.Stderr, "%s:%d: warn : Key '%s' has less translations (%d) than languages specified (%d)\n",
+				outputFilePath, i, key, len(languageValues), languagesCount)
 		}
 		missingTranslations := make([]string, 0)
 		for index, language := range languages {
@@ -205,7 +224,8 @@ func checkLocalization(keys []string, outputFilePath string) {
 				translationsEnding = "s"
 				languagesEnding = "s:"
 			}
-			fmt.Fprintf(os.Stderr, "%s:%d: warn : Missing translation%s for key '%s' for language%s %s", outputFilePath, i, translationsEnding, key, languagesEnding, missingLanguages)
+			fmt.Fprintf(os.Stderr, "%s:%d: warn : Missing translation%s for key '%s' for language%s %s",
+				outputFilePath, i, translationsEnding, key, languagesEnding, missingLanguages)
 		}
 	}
 }
@@ -240,11 +260,18 @@ func saveLocalization(keys []string, outputFilePath string) {
 
 	csvWriter := csv.NewWriter(file)
 	for _, key := range keys {
-		csvWriter.Write(localization[key])
+		values := append([]string{key}, localization[key]...)
+		csvWriter.Write(values)
 	}
 
+	csvWriter.Flush()
+
 	if verboseFlag {
-		fmt.Println("Done")
+		keysEnding := ""
+		if len(keys) > 1 {
+			keysEnding = "s"
+		}
+		fmt.Printf("Saved file with %d key%s.\n", len(keys), keysEnding)
 	}
 }
 
