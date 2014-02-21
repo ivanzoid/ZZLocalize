@@ -162,10 +162,7 @@ func stripComments(fileContents string) string {
 		index = endingIndex
 	}
 	buffer.WriteString(fileContents[index:len(fileContents)])
-
 	result := buffer.String()
-
-	fmt.Printf("====================================\n%v\n================================\n", result)
 	return result
 }
 
