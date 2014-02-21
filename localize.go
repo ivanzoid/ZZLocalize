@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"flag"
 	"fmt"
@@ -138,18 +139,43 @@ func processKey(key string) {
 }
 
 func stripComments(fileContents string) string {
-	result := stripCommentsRegexp.ReplaceAllString(fileContents, "")
+	indicesToRemove := make([]int, 0)
+
+	const commentMatchingGroup = 2
+	const commentMatchingStartIndex = 2 * commentMatchingGroup
+	const commentMatchingEndIndex = 2*commentMatchingGroup + 1
+
+	for _, matchIndices := range stripCommentsRegexp.FindAllStringSubmatchIndex(fileContents, -1) {
+		if len(matchIndices)/2 >= commentMatchingGroup+1 {
+			if matchIndices[commentMatchingStartIndex] != -1 && matchIndices[commentMatchingEndIndex] != -1 {
+				indicesToRemove = append(indicesToRemove, matchIndices[commentMatchingStartIndex], matchIndices[commentMatchingEndIndex])
+			}
+		}
+	}
+
+	var buffer bytes.Buffer
+	index := 0
+	for i := 0; i < len(indicesToRemove); i += 2 {
+		startingIndex := indicesToRemove[i]
+		endingIndex := indicesToRemove[i+1]
+		buffer.WriteString(fileContents[index:startingIndex])
+		index = endingIndex
+	}
+	buffer.WriteString(fileContents[index:len(fileContents)])
+
+	result := buffer.String()
+
 	fmt.Printf("====================================\n%v\n================================\n", result)
 	return result
 }
 
 func compileLocalizeRegexp() {
-	regexpString := fmt.Sprintf("(?ms)%s\\s*\\(\\s*@\"(.*)\"\\s*(?:,\\s*[\\w]*|@\"(.*)\"\\s*)*\\s*\\)", localizeFunctionFlag)
+	regexpString := fmt.Sprintf("(?ms)%s\\s*\\(\\s*@\"(.*?)\"\\s*(?:,\\s*[\\w]*|@\"(.*?)\"\\s*)*\\s*\\)", localizeFunctionFlag)
 	localizeRegexp = regexp.MustCompile(regexpString)
 }
 
 func compileStripCommentsRegexp() {
-	stripCommentsRegexp = regexp.MustCompile("(?ms)//.*?$|/\\*.*?\\*/|'(?:\\.|[^\\'])*'|\"(?:\\.|[^\\\"])*\"")
+	stripCommentsRegexp = regexp.MustCompile("(?ms)(\\\".*?\\\"|\\'.*?\\')|(/\\*.*?\\*/|//[^\\r\\n]*$)")
 }
 
 func loadLocalization(filePath string) {
@@ -224,7 +250,7 @@ func checkLocalization(keys []string, outputFilePath string) {
 				translationsEnding = "s"
 				languagesEnding = "s:"
 			}
-			fmt.Fprintf(os.Stderr, "%s:%d: warn : Missing translation%s for key '%s' for language%s %s",
+			fmt.Fprintf(os.Stderr, "%s:%d: warn : Missing translation%s for key '%s' for language%s %s\n",
 				outputFilePath, i, translationsEnding, key, languagesEnding, missingLanguages)
 		}
 	}
