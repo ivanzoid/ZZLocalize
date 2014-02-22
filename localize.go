@@ -43,19 +43,19 @@ const (
 func init() {
 	const (
 		localizeFunctionDefault     = "Localize"
-		localizeFunctionUsage       = "Name of localization routine."
+		localizeFunctionUsage       = "Name of localization routine"
 		outputDirectoryDefault      = "."
-		outputDirectoryUsage        = "Specifies what directory localization file should be created in. Default is current directory."
+		outputDirectoryUsage        = "Output directory for localization file"
 		languagesFlagDefault        = "en,ru"
-		languagesFlagUsage          = "Comma-separated list of localization languages."
+		languagesFlagUsage          = "Comma-separated list of localization languages"
 		localizationFileNameDefault = "Localization.csv"
-		localizationFileNameUsage   = "Name of localization CSV file."
+		localizationFileNameUsage   = "Name of localization file"
 		forceRescanDefault          = false
-		forceRescanUsage            = "By default, source file will be (re)scanned only if its modification time is newer than of " + localizationFileNameDefault + ". If this flag is present, all files are rescanned."
+		forceRescanUsage            = "Force rescan of all files (modification time will be ignored)"
 		extensionsFlagDefault       = "m,mm"
-		extensionsFlagUsage         = "Comma-separated list of extensions of files to be scanned."
+		extensionsFlagUsage         = "Comma-separated list of extensions of files which should be scanned"
 		verboseDefault              = false
-		verboseUsage                = "Use verbose output."
+		verboseUsage                = "Use verbose output"
 	)
 	flag.StringVar(&localizeFunctionFlag, "s", localizeFunctionDefault, localizeFunctionUsage)
 	flag.StringVar(&outputDirectoryFlag, "o", outputDirectoryDefault, outputDirectoryUsage)
@@ -67,15 +67,18 @@ func init() {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "%s is a tool to generate/merge csv-based localization file for Objective-C source code.\n", path.Base(os.Args[0]))
+	fmt.Fprintf(os.Stderr, "%s is a tool to generate/merge CSV-based localization file for Objective-C source code.\n", path.Base(os.Args[0]))
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "Usage:\n")
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "\t%s [options] path\n", path.Base(os.Args[0]))
 	fmt.Fprintf(os.Stderr, "\n")
-	fmt.Fprintf(os.Stderr, "Options are:\n")
+	fmt.Fprintf(os.Stderr, "Options are:\n(text in [brackets] are default values)\n")
 	fmt.Fprintf(os.Stderr, "\n")
-	flag.PrintDefaults()
+
+	flag.CommandLine.VisitAll(func(flag *flag.Flag) {
+		fmt.Fprintf(os.Stderr, "\t-%s:\t%s [%v]\n", flag.Name, flag.Usage, flag.DefValue)
+	})
 }
 
 func walkFunc(path string, info os.FileInfo, err error) error {
