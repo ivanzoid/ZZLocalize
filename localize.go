@@ -227,11 +227,11 @@ func checkLocalization(keys []string, outputFilePath string) {
 	for i, key := range keys {
 		languageValues := localization[key]
 		if len(languageValues) > languagesCount {
-			fmt.Fprintf(os.Stderr, "%s:%d: warn : Key '%s' has more translations (%d) than languages specified (%d)\n",
-				outputFilePath, i, key, len(languageValues), languagesCount)
+			fmt.Fprintf(os.Stderr, "%s:%d: warning: Key '%s' has more translations (%d) than languages specified (%d)\n",
+				outputFilePath, i+1, key, len(languageValues), languagesCount)
 		} else if len(languageValues) < languagesCount {
-			fmt.Fprintf(os.Stderr, "%s:%d: warn : Key '%s' has less translations (%d) than languages specified (%d)\n",
-				outputFilePath, i, key, len(languageValues), languagesCount)
+			fmt.Fprintf(os.Stderr, "%s:%d: warning: Key '%s' has less translations (%d) than languages specified (%d)\n",
+				outputFilePath, i+1, key, len(languageValues), languagesCount)
 		}
 		missingTranslations := make([]string, 0)
 		for index, language := range languages {
@@ -247,8 +247,8 @@ func checkLocalization(keys []string, outputFilePath string) {
 				translationsEnding = "s"
 				languagesEnding = "s:"
 			}
-			fmt.Fprintf(os.Stderr, "%s:%d: warn : Missing translation%s for key '%s' for language%s %s\n",
-				outputFilePath, i, translationsEnding, key, languagesEnding, missingLanguages)
+			fmt.Fprintf(os.Stderr, "%s:%d: warning: Missing translation%s for key '%s' for language%s %s\n",
+				outputFilePath, i+1, translationsEnding, key, languagesEnding, missingLanguages)
 		}
 	}
 }
