@@ -23,6 +23,7 @@ var (
 	forceRescanFlag          bool
 	extensionsFlag           string
 	localizationFileNameFlag string
+	convertStringsModeFlag   bool
 	verboseFlag              bool
 )
 
@@ -33,6 +34,7 @@ var (
 	localizationModificationTime time.Time
 	localizeRegexp               *regexp.Regexp
 	stripCommentsRegexp          *regexp.Regexp
+	stringsRegexp                *regexp.Regexp
 	localization                 map[string][]string
 )
 
@@ -54,6 +56,8 @@ func init() {
 		forceRescanUsage            = "Force rescan of all files (modification time will be ignored)"
 		extensionsFlagDefault       = "m,mm"
 		extensionsFlagUsage         = "Comma-separated list of extensions of files which should be scanned"
+		convertStringsModeDefault   = false
+		convertStringsModeUsage     = "Enables 'conversion' mode. Recursively converts .strings files found in <path> to single .csv file"
 		verboseDefault              = false
 		verboseUsage                = "Use verbose output"
 	)
@@ -63,6 +67,7 @@ func init() {
 	flag.BoolVar(&forceRescanFlag, "f", forceRescanDefault, forceRescanUsage)
 	flag.StringVar(&extensionsFlag, "e", extensionsFlagDefault, extensionsFlagUsage)
 	flag.StringVar(&localizationFileNameFlag, "n", localizationFileNameDefault, localizationFileNameUsage)
+	flag.BoolVar(&convertStringsModeFlag, "c", convertStringsModeDefault, convertStringsModeUsage)
 	flag.BoolVar(&verboseFlag, "v", verboseDefault, verboseUsage)
 }
 
@@ -71,17 +76,21 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "Usage:\n")
 	fmt.Fprintf(os.Stderr, "\n")
-	fmt.Fprintf(os.Stderr, "\t%s [options] path\n", path.Base(os.Args[0]))
+	fmt.Fprintf(os.Stderr, "\t%s [options] <path>\n", path.Base(os.Args[0]))
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "Options are:\n(text in [brackets] are default values)\n")
 	fmt.Fprintf(os.Stderr, "\n")
 
 	flag.CommandLine.VisitAll(func(flag *flag.Flag) {
-		fmt.Fprintf(os.Stderr, "\t-%s:\t%s [%v]\n", flag.Name, flag.Usage, flag.DefValue)
+		defaultValue := ""
+		if len(flag.DefValue) > 0 {
+			defaultValue = fmt.Sprintf(" [%v]", flag.DefValue)
+		}
+		fmt.Fprintf(os.Stderr, "\t-%s:\t%s%s\n", flag.Name, flag.Usage, defaultValue)
 	})
 }
 
-func walkFunc(path string, info os.FileInfo, err error) error {
+func sourceWalkFunc(path string, info os.FileInfo, err error) error {
 	if info.IsDir() {
 		return nil
 	}
@@ -94,7 +103,7 @@ func walkFunc(path string, info os.FileInfo, err error) error {
 		if fileExtension == extension {
 			modified := info.ModTime().After(localizationModificationTime)
 			if forceRescanFlag || modified {
-				processFile(path)
+				processSourceFile(path)
 			} else {
 				if verboseFlag {
 					fmt.Printf("File %v was not modified.\n", path)
@@ -105,7 +114,7 @@ func walkFunc(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func processFile(filePath string) {
+func processSourceFile(filePath string) {
 	if verboseFlag {
 		fmt.Println("Processing " + filePath)
 	}
@@ -117,15 +126,15 @@ func processFile(filePath string) {
 
 	fileContents := string(bytes)
 	fileContents = stripComments(fileContents)
-	processFileContents(fileContents)
+	processSourceFileContents(fileContents)
 }
 
-func processFileContents(fileContents string) {
+func processSourceFileContents(fileContents string) {
 	var matches [][]string = localizeRegexp.FindAllStringSubmatch(fileContents, -1)
 	for _, match := range matches {
 		if len(match) > 1 {
 			key := match[1]
-			processKey(key)
+			processSourceFileKey(key)
 		}
 	}
 	if verboseFlag {
@@ -135,7 +144,7 @@ func processFileContents(fileContents string) {
 	}
 }
 
-func processKey(key string) {
+func processSourceFileKey(key string) {
 	if _, ok := localization[key]; !ok {
 		localization[key] = make([]string, languagesCount)
 	}
@@ -169,6 +178,91 @@ func stripComments(fileContents string) string {
 	return result
 }
 
+var stringsWalkCurrentLanguageIndex int
+
+func stringsWalkFunc(path string, info os.FileInfo, err error) error {
+	if info.IsDir() {
+		if filepath.Ext(info.Name()) != ".lproj" {
+			return nil
+		}
+		for index, language := range languages {
+			if strings.HasPrefix(info.Name(), language) {
+				stringsWalkCurrentLanguageIndex = index
+				return nil
+			}
+		}
+	} else {
+		if filepath.Ext(info.Name()) != ".strings" {
+			return nil
+		}
+		processStringFile(path)
+	}
+	return nil
+}
+
+func processStringFile(filePath string) {
+	if verboseFlag {
+		fmt.Println("Processing " + filePath)
+	}
+	bytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
+
+	fileContents := string(bytes)
+	fileContents = stripComments(fileContents)
+	translationsCount := processStringFileContents(fileContents)
+
+	if verboseFlag {
+		fmt.Printf("Parsed %d translations from %s\n", translationsCount, filePath)
+	}
+}
+
+func unescapeLocalizedString(s string) string {
+	result := strings.Replace(s, "\\\"", "\"", -1)
+	result = strings.Replace(result, "\\'", "'", -1)
+	return result
+}
+
+func processStringFileContents(fileContents string) int {
+	const expectedGroupCount = 2
+	const keyGroupStartPos = 1 * 2
+	const keyGroupEndPos = 1*2 + 1
+	const valueGroupStartPos = 2 * 2
+	const valueGroupEndPos = 2*2 + 1
+
+	translationsCount := 0
+
+	for _, matchIndices := range stringsRegexp.FindAllStringSubmatchIndex(fileContents, -1) {
+		if len(matchIndices)/2 >= expectedGroupCount+1 {
+			key := ""
+			if matchIndices[keyGroupStartPos] != -1 && matchIndices[keyGroupEndPos] != -1 {
+				key = fileContents[matchIndices[keyGroupStartPos]:matchIndices[keyGroupEndPos]]
+			}
+			value := ""
+			if matchIndices[valueGroupStartPos] != -1 && matchIndices[valueGroupEndPos] != -1 {
+				value = fileContents[matchIndices[valueGroupStartPos]:matchIndices[valueGroupEndPos]]
+			}
+			key = unescapeLocalizedString(key)
+			value = unescapeLocalizedString(value)
+			if len(key) > 0 && len(value) > 0 {
+				processStringsFileKeyValue(key, value)
+				translationsCount++
+			}
+		}
+	}
+
+	return translationsCount
+}
+
+func processStringsFileKeyValue(key, value string) {
+	if _, ok := localization[key]; !ok {
+		localization[key] = make([]string, languagesCount)
+	}
+	localization[key][stringsWalkCurrentLanguageIndex] = value
+}
+
 func compileLocalizeRegexp() {
 	regexpString := fmt.Sprintf("(?ms)%s\\s*\\(\\s*@\"(.*?)\"\\s*(?:,\\s*[\\w]*|@\"(.*?)\"\\s*)*\\s*\\)", localizeFunctionFlag)
 	localizeRegexp = regexp.MustCompile(regexpString)
@@ -178,9 +272,15 @@ func compileStripCommentsRegexp() {
 	stripCommentsRegexp = regexp.MustCompile("(?ms)(\\\".*?\\\"|\\'.*?\\')|(/\\*.*?\\*/|//[^\\r\\n]*$)")
 }
 
-func loadLocalization(filePath string) {
-	localization = make(map[string][]string)
+func compileStringsRegexp() {
+	stringsRegexp = regexp.MustCompile("(?ms)\\s*\\\"(.*?)(?<!\\\\)\\\"\\s*=\\s*\\\"(.*?)(?<!\\\\)\\\"\\s*;")
+}
 
+func initLocalization() {
+	localization = make(map[string][]string)
+}
+
+func loadLocalization(filePath string) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return
@@ -334,10 +434,16 @@ func parseArguments() (sourcePath, outputFilePath string) {
 
 func main() {
 	sourcePath, outputFilePath := parseArguments()
-	compileLocalizeRegexp()
+	initLocalization()
 	compileStripCommentsRegexp()
-	loadLocalization(outputFilePath)
-	filepath.Walk(sourcePath, walkFunc)
+	if !convertStringsModeFlag {
+		compileLocalizeRegexp()
+		loadLocalization(outputFilePath)
+		filepath.Walk(sourcePath, sourceWalkFunc)
+	} else {
+		compileStringsRegexp()
+		filepath.Walk(sourcePath, stringsWalkFunc)
+	}
 	keys := sortedKeys()
 	checkLocalization(keys, outputFilePath)
 	saveLocalization(keys, outputFilePath)
