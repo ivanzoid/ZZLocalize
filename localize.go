@@ -185,6 +185,7 @@ func stringsWalkFunc(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(info.Name()) != ".lproj" {
 			return nil
 		}
+		stringsWalkCurrentLanguageIndex = -1
 		for index, language := range languages {
 			if strings.HasPrefix(info.Name(), language) {
 				stringsWalkCurrentLanguageIndex = index
@@ -193,6 +194,9 @@ func stringsWalkFunc(path string, info os.FileInfo, err error) error {
 		}
 	} else {
 		if filepath.Ext(info.Name()) != ".strings" {
+			return nil
+		}
+		if stringsWalkCurrentLanguageIndex == -1 {
 			return nil
 		}
 		processStringFile(path)
@@ -273,7 +277,7 @@ func compileStripCommentsRegexp() {
 }
 
 func compileStringsRegexp() {
-	stringsRegexp = regexp.MustCompile("(?ms)\\s*\\\"(.*?)(?<!\\\\)\\\"\\s*=\\s*\\\"(.*?)(?<!\\\\)\\\"\\s*;")
+	stringsRegexp = regexp.MustCompile("(?ms)\\s*\\\"(.*?)\\\"\\s*=\\s*\\\"(.*?)\\\"\\s*;")
 }
 
 func initLocalization() {
