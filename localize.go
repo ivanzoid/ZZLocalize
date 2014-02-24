@@ -446,7 +446,7 @@ func main() {
 	compileStripCommentsRegexp()
 	if !convertStringsModeFlag {
 		compileLocalizeRegexp()
-		if !keepMissingKeysFlag {
+		if keepMissingKeysFlag {
 			loadLocalization(outputFilePath)
 		}
 		filepath.Walk(sourcePath, sourceWalkFunc)
