@@ -24,8 +24,8 @@ var (
 	extensionsFlag           string
 	localizationFileNameFlag string
 	convertStringsModeFlag   bool
-	keepMissingKeysFlag      bool
-	verboseFlag              bool
+	//keepMissingKeysFlag      bool
+	verboseFlag bool
 )
 
 var (
@@ -59,8 +59,6 @@ func init() {
 		extensionsFlagUsage         = "Comma-separated list of extensions of files which should be scanned"
 		convertStringsModeDefault   = false
 		convertStringsModeUsage     = "Enables 'conversion' mode. Recursively converts .strings files found in <path> to single .csv file"
-		keepMissingKeysDefault      = false
-		keepMissingKeysUsage        = "Keep keys from " + localizationFileNameDefault + " even if they are missing in source files"
 		verboseDefault              = false
 		verboseUsage                = "Use verbose output"
 	)
@@ -71,7 +69,6 @@ func init() {
 	flag.StringVar(&extensionsFlag, "e", extensionsFlagDefault, extensionsFlagUsage)
 	flag.StringVar(&localizationFileNameFlag, "n", localizationFileNameDefault, localizationFileNameUsage)
 	flag.BoolVar(&convertStringsModeFlag, "c", convertStringsModeDefault, convertStringsModeUsage)
-	flag.BoolVar(&keepMissingKeysFlag, "k", keepMissingKeysDefault, keepMissingKeysUsage)
 	flag.BoolVar(&verboseFlag, "v", verboseDefault, verboseUsage)
 }
 
@@ -335,6 +332,9 @@ func localizationKeys() []string {
 }
 
 func checkLocalization(keys []string, outputFilePath string) {
+	if verboseFlag {
+		fmt.Printf("localization table:\n%v\n", localization)
+	}
 	for i, key := range keys {
 		languageValues := localization[key]
 		if len(languageValues) > languagesCount {
@@ -446,9 +446,7 @@ func main() {
 	compileStripCommentsRegexp()
 	if !convertStringsModeFlag {
 		compileLocalizeRegexp()
-		if keepMissingKeysFlag {
-			loadLocalization(outputFilePath)
-		}
+		loadLocalization(outputFilePath)
 		filepath.Walk(sourcePath, sourceWalkFunc)
 	} else {
 		compileStringsRegexp()
