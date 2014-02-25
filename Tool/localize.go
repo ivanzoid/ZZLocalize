@@ -380,10 +380,10 @@ func checkLocalization(keys []string, outputFilePath string) {
 	}
 	for i, key := range keys {
 		languageValues := localization[key]
-		if len(languageValues) > languagesCount {
+		if len(languageValues) > languagesCount+1 {
 			fmt.Fprintf(os.Stderr, "%s:%d: warning: Key '%s' has more translations (%d) than languages specified (%d)\n",
 				outputFilePath, i+1, key, len(languageValues), languagesCount)
-		} else if len(languageValues) < languagesCount {
+		} else if len(languageValues) < languagesCount+1 {
 			fmt.Fprintf(os.Stderr, "%s:%d: warning: Key '%s' has less translations (%d) than languages specified (%d)\n",
 				outputFilePath, i+1, key, len(languageValues), languagesCount)
 		}

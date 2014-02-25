@@ -22,7 +22,7 @@
 		2C2056A918BB0D91000E5ABD /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C20568B18BB0D91000E5ABD /* UIKit.framework */; };
 		2C2056B118BB0D91000E5ABD /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 2C2056AF18BB0D91000E5ABD /* InfoPlist.strings */; };
 		2C2056B318BB0D91000E5ABD /* DemoProjectTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 2C2056B218BB0D91000E5ABD /* DemoProjectTests.m */; };
-		2CF32CEC18BB0DF80027D231 /* ZZLocalize.m in Sources */ = {isa = PBXBuildFile; fileRef = 2CF32CEB18BB0DF80027D231 /* ZZLocalize.m */; };
+		2C2CFB1D18BD217C00FA0213 /* ZZLocalize.m in Sources */ = {isa = PBXBuildFile; fileRef = 2C2CFB1C18BD217C00FA0213 /* ZZLocalize.m */; };
 		2CF32CEF18BB175C0027D231 /* Localization.csv in Resources */ = {isa = PBXBuildFile; fileRef = 2CF32CEE18BB175C0027D231 /* Localization.csv */; };
 /* End PBXBuildFile section */
 
@@ -57,8 +57,8 @@
 		2C2056AE18BB0D91000E5ABD /* DemoProjectTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "DemoProjectTests-Info.plist"; sourceTree = "<group>"; };
 		2C2056B018BB0D91000E5ABD /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		2C2056B218BB0D91000E5ABD /* DemoProjectTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DemoProjectTests.m; sourceTree = "<group>"; };
-		2CF32CEA18BB0DF80027D231 /* ZZLocalize.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ZZLocalize.h; path = ../ZZLocalize.h; sourceTree = "<group>"; };
-		2CF32CEB18BB0DF80027D231 /* ZZLocalize.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = ZZLocalize.m; path = ../ZZLocalize.m; sourceTree = "<group>"; };
+		2C2CFB1B18BD217C00FA0213 /* ZZLocalize.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZZLocalize.h; sourceTree = "<group>"; };
+		2C2CFB1C18BD217C00FA0213 /* ZZLocalize.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZZLocalize.m; sourceTree = "<group>"; };
 		2CF32CEE18BB175C0027D231 /* Localization.csv */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Localization.csv; sourceTree = SOURCE_ROOT; };
 		A26C37F2931A41AB956451B1 /* Pods.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Pods.xcconfig; path = Pods/Pods.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -91,7 +91,7 @@
 		2C20567B18BB0D91000E5ABD = {
 			isa = PBXGroup;
 			children = (
-				2CF32CED18BB0DFE0027D231 /* ZZLocalize */,
+				2C2CFB1A18BD217C00FA0213 /* ZZLocalize */,
 				2C20568D18BB0D91000E5ABD /* DemoProject */,
 				2C2056AC18BB0D91000E5ABD /* DemoProjectTests */,
 				2C20568618BB0D91000E5ABD /* Frameworks */,
@@ -165,13 +165,14 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
-		2CF32CED18BB0DFE0027D231 /* ZZLocalize */ = {
+		2C2CFB1A18BD217C00FA0213 /* ZZLocalize */ = {
 			isa = PBXGroup;
 			children = (
-				2CF32CEA18BB0DF80027D231 /* ZZLocalize.h */,
-				2CF32CEB18BB0DF80027D231 /* ZZLocalize.m */,
+				2C2CFB1B18BD217C00FA0213 /* ZZLocalize.h */,
+				2C2CFB1C18BD217C00FA0213 /* ZZLocalize.m */,
 			);
 			name = ZZLocalize;
+			path = ../ZZLocalize;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -184,6 +185,7 @@
 				800EFCA3333749809EEFE955 /* Check Pods Manifest.lock */,
 				2C20568018BB0D91000E5ABD /* Sources */,
 				2C20568118BB0D91000E5ABD /* Frameworks */,
+				2CF520CD18BD21EE00FD93BF /* Localize */,
 				2C20568218BB0D91000E5ABD /* Resources */,
 				CAC8E1CFDD57488FBA80359D /* Copy Pods Resources */,
 			);
@@ -270,6 +272,20 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		2CF520CD18BD21EE00FD93BF /* Localize */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = Localize;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "../../Tool/localize .";
+		};
 		800EFCA3333749809EEFE955 /* Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -309,7 +325,7 @@
 			files = (
 				2C20569E18BB0D91000E5ABD /* ViewController.m in Sources */,
 				2C20569818BB0D91000E5ABD /* AppDelegate.m in Sources */,
-				2CF32CEC18BB0DF80027D231 /* ZZLocalize.m in Sources */,
+				2C2CFB1D18BD217C00FA0213 /* ZZLocalize.m in Sources */,
 				2C20569418BB0D91000E5ABD /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
