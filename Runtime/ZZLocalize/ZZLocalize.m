@@ -8,38 +8,54 @@
 #import "ZZLocalize.h"
 #import "CHCSVParser.h"
 
-static NSMutableDictionary *ZZLocalizationDict;
+static NSMutableDictionary *GLocalizationDict;
+static NSMutableDictionary *GLocalizationFallbackDict;
+static ZZLocalizeOptions GLocalizeOptions;
+static NSInteger GLocalizationLanguagesCount;
 static NSString * const kDefaultFileName = @"Localization.csv";
 static NSString * const kLanguageKey = @"language";
 
 void ZZLocalizeInit(void)
 {
-    ZZLocalizeInitWithFileName(kDefaultFileName);
+    ZZLocalizeInitWithOptions(ZZLocalizeOptionUseFallbackLanguage);
 }
 
-void ZZLocalizeInitWithFileName(NSString *fileName)
+extern void ZZLocalizeInitWithOptions(ZZLocalizeOptions options)
 {
-    ZZLocalizationDict = [NSMutableDictionary new];
+    ZZLocalizeInitWithOptionsAndFileName(options, kDefaultFileName);
+}
+
+static NSString *TrimQuotesFromValue(NSString *value)
+{
+    return [value stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\""]];
+}
+
+extern void ZZLocalizeInitWithOptionsAndFileName(ZZLocalizeOptions options, NSString *fileName)
+{
+    GLocalizationDict = [NSMutableDictionary new];
+    GLocalizeOptions = options;
 
     NSString *filePath = [[NSBundle mainBundle] pathForResource:fileName ofType:nil];
-    NSArray *translations = [NSArray arrayWithContentsOfCSVFile:filePath options:CHCSVParserOptionsSanitizesFields | CHCSVParserOptionsRecognizesComments];
+    NSArray *translations = [NSArray arrayWithContentsOfCSVFile:filePath options:CHCSVParserOptionsRecognizesComments];
 
     if ([translations count] == 0) {
         return;
     }
 
-    NSString *currentLocaleISOCode = [NSLocale preferredLanguages][0];
+    NSString *currentLanguage = [NSLocale preferredLanguages][0];
 
     NSArray *languages = translations[0];
     if ([languages count] == 0) {
-        NSLog(@"[ZZLocalize] Bad line with languages.");
+        LogCError(@"[ZZLocalize] Bad line with languages.");
         return;
     }
+
+    GLocalizationLanguagesCount = [languages count] - 1;
 
     NSInteger languageIndex = -1;
     for (NSInteger i = 1; i < [languages count]; i++) {
         NSString *languageValue = languages[i];
-        if ([languageValue hasPrefix:currentLocaleISOCode]) {
+        if ([currentLanguage hasPrefix:languageValue]) {
             languageIndex = i;
             break;
         }
@@ -49,20 +65,48 @@ void ZZLocalizeInitWithFileName(NSString *fileName)
         return;
     }
 
+    BOOL useFallbackLanguage = (options & ZZLocalizeOptionUseFallbackLanguage);
+    if (useFallbackLanguage) {
+        GLocalizationFallbackDict = [NSMutableDictionary new];
+    }
+
     for (NSInteger i = 1; i < [translations count]; i++) {
         NSArray *translation = translations[i];
         if (languageIndex >= [translation count]) {
-            NSLog(@"[ZZLocalize] Bad line at %@:%d", fileName, i);
+            LogCWarning(@"[ZZLocalize] Bad line at %@:%d", fileName, i);
             continue;
         }
         NSString *key = translation[0];
-        NSString *value = translation[languageIndex];
-        ZZLocalizationDict[key] = value;
+        NSString *value = TrimQuotesFromValue(translation[languageIndex]);
+        if ([value length]) {
+            GLocalizationDict[key] = value;
+        }
+
+        if (useFallbackLanguage) {
+            NSString *fallbackValue = TrimQuotesFromValue(translation[1]);
+            if ([fallbackValue length]) {
+                GLocalizationFallbackDict[key] = fallbackValue;
+            }
+        }
     }
 }
 
 NSString * ZZLocalize(NSString *key)
 {
-    NSString *result = ZZLocalizationDict[key];
+    NSString *result = GLocalizationDict[key];
+
+    if (result == nil) {
+        result = GLocalizationFallbackDict[key];
+        if (result) {
+            LogCWarning(@"[ZZLocalize] Missing translation for key '%@'. Using value for default language.", key);
+        } else {
+            LogCWarning(@"[ZZLocalize] Missing translation for key '%@'.", key);
+        }
+    }
+
+    if (!result) {
+        result = key;
+    }
+
     return result;
 }
