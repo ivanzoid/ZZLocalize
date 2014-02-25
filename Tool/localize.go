@@ -19,13 +19,12 @@ import (
 var (
 	localizeFunctionFlag     string
 	outputDirectoryFlag      string
-	languagesFlag            string
 	forceRescanFlag          bool
 	extensionsFlag           string
 	localizationFileNameFlag string
 	convertStringsModeFlag   bool
-	//keepMissingKeysFlag      bool
-	verboseFlag bool
+	cleanFlag                bool
+	verboseFlag              bool
 )
 
 var (
@@ -40,7 +39,8 @@ var (
 )
 
 const (
-	languageKey = "language"
+	languageKey     = "language"
+	defaultLanguage = "en"
 )
 
 func init() {
@@ -49,8 +49,6 @@ func init() {
 		localizeFunctionUsage       = "Name of localization routine"
 		outputDirectoryDefault      = "."
 		outputDirectoryUsage        = "Output directory for localization file"
-		languagesFlagDefault        = "en,ru"
-		languagesFlagUsage          = "Comma-separated list of localization languages"
 		localizationFileNameDefault = "Localization.csv"
 		localizationFileNameUsage   = "Name of localization file"
 		forceRescanDefault          = false
@@ -59,16 +57,18 @@ func init() {
 		extensionsFlagUsage         = "Comma-separated list of extensions of files which should be scanned"
 		convertStringsModeDefault   = false
 		convertStringsModeUsage     = "Enables 'conversion' mode. Recursively converts .strings files found in <path> to single .csv file"
+		cleanDefault                = false
+		cleanUsage                  = "Clean unused localization strings. Implies -r (full rescan)"
 		verboseDefault              = false
 		verboseUsage                = "Use verbose output"
 	)
 	flag.StringVar(&localizeFunctionFlag, "s", localizeFunctionDefault, localizeFunctionUsage)
 	flag.StringVar(&outputDirectoryFlag, "o", outputDirectoryDefault, outputDirectoryUsage)
-	flag.StringVar(&languagesFlag, "l", languagesFlagDefault, languagesFlagUsage)
-	flag.BoolVar(&forceRescanFlag, "f", forceRescanDefault, forceRescanUsage)
+	flag.BoolVar(&forceRescanFlag, "r", forceRescanDefault, forceRescanUsage)
 	flag.StringVar(&extensionsFlag, "e", extensionsFlagDefault, extensionsFlagUsage)
 	flag.StringVar(&localizationFileNameFlag, "n", localizationFileNameDefault, localizationFileNameUsage)
-	flag.BoolVar(&convertStringsModeFlag, "c", convertStringsModeDefault, convertStringsModeUsage)
+	flag.BoolVar(&convertStringsModeFlag, "k", convertStringsModeDefault, convertStringsModeUsage)
+	flag.BoolVar(&cleanFlag, "c", cleanDefault, cleanUsage)
 	flag.BoolVar(&verboseFlag, "v", verboseDefault, verboseUsage)
 }
 
@@ -77,7 +77,9 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "Usage:\n")
 	fmt.Fprintf(os.Stderr, "\n")
-	fmt.Fprintf(os.Stderr, "\t%s [options] <path>\n", path.Base(os.Args[0]))
+	fmt.Fprintf(os.Stderr, "\t%s [options] <sourcePath>\n", path.Base(os.Args[0]))
+	fmt.Fprintf(os.Stderr, "or\n")
+	fmt.Fprintf(os.Stderr, "\t%s -k [options] <sourcePath>\n", path.Base(os.Args[0]))
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "Options are:\n(text in [brackets] are default values)\n")
 	fmt.Fprintf(os.Stderr, "\n")
@@ -89,6 +91,10 @@ func usage() {
 		}
 		fmt.Fprintf(os.Stderr, "\t-%s:\t%s%s\n", flag.Name, flag.Usage, defaultValue)
 	})
+}
+
+func processSources(sourcePath string) {
+	filepath.Walk(sourcePath, sourceWalkFunc)
 }
 
 func sourceWalkFunc(path string, info os.FileInfo, err error) error {
@@ -177,6 +183,35 @@ func stripComments(fileContents string) string {
 	buffer.WriteString(fileContents[index:len(fileContents)])
 	result := buffer.String()
 	return result
+}
+
+func findAllStringsLanguages(stringsFilesPath string) {
+	filepath.Walk(stringsFilesPath, stringsLanguagesWalkFunc)
+}
+
+func stringsLanguagesWalkFunc(path string, info os.FileInfo, err error) error {
+	if !info.IsDir() {
+		return nil
+	}
+	if filepath.Ext(info.Name()) != ".lproj" {
+		return nil
+	}
+	language := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))
+	for _, existingLanguage := range languages {
+		if existingLanguage == language {
+			return nil
+		}
+	}
+	if language == defaultLanguage {
+		languages = append([]string{language}, languages...)
+	} else {
+		languages = append(languages, language)
+	}
+	return nil
+}
+
+func processStringsFiles(stringsFilesPath string) {
+	filepath.Walk(stringsFilesPath, stringsWalkFunc)
 }
 
 var stringsWalkCurrentLanguageIndex int
@@ -319,6 +354,14 @@ func loadLocalization(filePath string) {
 		}
 		fmt.Printf("Loaded %d key%s from %s\n", len(localization), keysEnding, filePath)
 	}
+
+	languagesValues, ok := localization[languageKey]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "%s:1: error: Missing line with 'language' key.\n", filePath)
+	} else {
+		languages = languagesValues[1:]
+		languagesCount = len(languages)
+	}
 }
 
 func localizationKeys() []string {
@@ -432,9 +475,6 @@ func parseArguments() (sourcePath, outputFilePath string) {
 
 	outputFilePath = filepath.Join(outputDir, localizationFileNameFlag)
 
-	languages = strings.Split(languagesFlag, ",")
-	languagesCount = len(languages)
-
 	extensions = strings.Split(extensionsFlag, ",")
 
 	return
@@ -447,10 +487,10 @@ func main() {
 	if !convertStringsModeFlag {
 		compileLocalizeRegexp()
 		loadLocalization(outputFilePath)
-		filepath.Walk(sourcePath, sourceWalkFunc)
+		processSources(sourcePath)
 	} else {
 		compileStringsRegexp()
-		filepath.Walk(sourcePath, stringsWalkFunc)
+		processStringsFiles(sourcePath)
 	}
 	keys := sortedKeys()
 	checkLocalization(keys, outputFilePath)
