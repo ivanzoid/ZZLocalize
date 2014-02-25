@@ -79,7 +79,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "\t%s [options] <sourcePath>\n", path.Base(os.Args[0]))
 	fmt.Fprintf(os.Stderr, "or\n")
-	fmt.Fprintf(os.Stderr, "\t%s -k [options] <sourcePath>\n", path.Base(os.Args[0]))
+	fmt.Fprintf(os.Stderr, "\t%s -k [options] <stringsPath>\n", path.Base(os.Args[0]))
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "Options are:\n(text in [brackets] are default values)\n")
 	fmt.Fprintf(os.Stderr, "\n")
