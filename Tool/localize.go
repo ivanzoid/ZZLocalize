@@ -56,7 +56,7 @@ func init() {
 		extensionsFlagDefault       = "m,mm"
 		extensionsFlagUsage         = "Comma-separated list of extensions of files which should be scanned"
 		convertStringsModeDefault   = false
-		convertStringsModeUsage     = "Enables 'conversion' mode. Recursively converts .strings files found in <path> to single .csv file"
+		convertStringsModeUsage     = "Enables 'conversion' mode. Recursively converts .strings files found in <stringsPath> to single .csv file"
 		cleanDefault                = false
 		cleanUsage                  = "Clean unused localization strings. Implies -r (full rescan)"
 		verboseDefault              = false
@@ -187,6 +187,10 @@ func stripComments(fileContents string) string {
 
 func findAllStringsLanguages(stringsFilesPath string) {
 	filepath.Walk(stringsFilesPath, stringsLanguagesWalkFunc)
+	if verboseFlag {
+		fmt.Printf("Languages = %v\n", languages)
+	}
+	languagesCount = len(languages)
 }
 
 func stringsLanguagesWalkFunc(path string, info os.FileInfo, err error) error {
@@ -359,8 +363,11 @@ func loadLocalization(filePath string) {
 	if !ok {
 		fmt.Fprintf(os.Stderr, "%s:1: error: Missing line with 'language' key.\n", filePath)
 	} else {
-		languages = languagesValues[1:]
+		languages = languagesValues
 		languagesCount = len(languages)
+		if verboseFlag {
+			fmt.Printf("Languages = %v (count is %d).\n", languages, languagesCount)
+		}
 	}
 }
 
@@ -380,10 +387,10 @@ func checkLocalization(keys []string, outputFilePath string) {
 	}
 	for i, key := range keys {
 		languageValues := localization[key]
-		if len(languageValues) > languagesCount+1 {
+		if len(languageValues) > languagesCount {
 			fmt.Fprintf(os.Stderr, "%s:%d: warning: Key '%s' has more translations (%d) than languages specified (%d)\n",
 				outputFilePath, i+1, key, len(languageValues), languagesCount)
-		} else if len(languageValues) < languagesCount+1 {
+		} else if len(languageValues) < languagesCount {
 			fmt.Fprintf(os.Stderr, "%s:%d: warning: Key '%s' has less translations (%d) than languages specified (%d)\n",
 				outputFilePath, i+1, key, len(languageValues), languagesCount)
 		}
@@ -481,16 +488,17 @@ func parseArguments() (sourcePath, outputFilePath string) {
 }
 
 func main() {
-	sourcePath, outputFilePath := parseArguments()
+	srcPath, outputFilePath := parseArguments()
 	initLocalization()
 	compileStripCommentsRegexp()
 	if !convertStringsModeFlag {
 		compileLocalizeRegexp()
 		loadLocalization(outputFilePath)
-		processSources(sourcePath)
+		processSources(srcPath)
 	} else {
 		compileStringsRegexp()
-		processStringsFiles(sourcePath)
+		findAllStringsLanguages(srcPath)
+		processStringsFiles(srcPath)
 	}
 	keys := sortedKeys()
 	checkLocalization(keys, outputFilePath)

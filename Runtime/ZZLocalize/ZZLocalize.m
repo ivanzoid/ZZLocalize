@@ -7,47 +7,62 @@
 
 #import "ZZLocalize.h"
 #import "CHCSVParser.h"
+#import "ZZLocalizePrivate.h"
 
 static NSMutableDictionary *GLocalizationDict;
 static NSMutableDictionary *GLocalizationFallbackDict;
-static ZZLocalizeOptions GLocalizeOptions;
 static NSInteger GLocalizationLanguagesCount;
 static NSString * const kDefaultFileName = @"Localization.csv";
 static NSString * const kLanguageKey = @"language";
+static NSString * const kNSErrorDomainName = @"ZZLocalize";
 
-void ZZLocalizeInit(void)
+BOOL ZZLocalizeInit(NSError **error)
 {
-    ZZLocalizeInitWithOptions(ZZLocalizeOptionUseFallbackLanguage);
-}
-
-extern void ZZLocalizeInitWithOptions(ZZLocalizeOptions options)
-{
-    ZZLocalizeInitWithOptionsAndFileName(options, kDefaultFileName);
+    return ZZLocalizeInitWithFileName(kDefaultFileName, error);
 }
 
 static NSString *TrimQuotesFromValue(NSString *value)
 {
-    return [value stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\""]];
+    NSString *result = value;
+    result = [result stringByReplacingOccurrencesOfString:@"\"\"" withString:@"\""];
+    result = [result stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\""]];
+    return result;
 }
 
-extern void ZZLocalizeInitWithOptionsAndFileName(ZZLocalizeOptions options, NSString *fileName)
+static NSError *ErrorWithDescription(NSString *description)
+{
+    NSCParameterAssert(description);
+
+    NSError *error = [NSError errorWithDomain:kNSErrorDomainName code:0 userInfo:@{NSLocalizedDescriptionKey: description}];
+    return error;
+}
+
+BOOL ZZLocalizeInitWithFileName(NSString *fileName, NSError **error)
 {
     GLocalizationDict = [NSMutableDictionary new];
-    GLocalizeOptions = options;
 
     NSString *filePath = [[NSBundle mainBundle] pathForResource:fileName ofType:nil];
+    if (filePath == nil) {
+        if (error) {
+            *error = ErrorWithDescription([NSString stringWithFormat:@"Can't find %@.", fileName]);
+        }
+        return NO;
+    }
+
     NSArray *translations = [NSArray arrayWithContentsOfCSVFile:filePath options:CHCSVParserOptionsRecognizesComments];
 
     if ([translations count] == 0) {
-        return;
+        return YES;
     }
 
     NSString *currentLanguage = [NSLocale preferredLanguages][0];
 
     NSArray *languages = translations[0];
     if ([languages count] == 0) {
-        LogCError(@"[ZZLocalize] Bad line with languages.");
-        return;
+        if (error) {
+            *error = ErrorWithDescription(@"Bad line with languages.");
+        }
+        return NO;
     }
 
     GLocalizationLanguagesCount = [languages count] - 1;
@@ -62,18 +77,15 @@ extern void ZZLocalizeInitWithOptionsAndFileName(ZZLocalizeOptions options, NSSt
     }
 
     if (languageIndex == -1) {
-        return;
+        return YES;
     }
 
-    BOOL useFallbackLanguage = (options & ZZLocalizeOptionUseFallbackLanguage);
-    if (useFallbackLanguage) {
-        GLocalizationFallbackDict = [NSMutableDictionary new];
-    }
+    GLocalizationFallbackDict = [NSMutableDictionary new];
 
     for (NSInteger i = 1; i < [translations count]; i++) {
         NSArray *translation = translations[i];
         if (languageIndex >= [translation count]) {
-            LogCWarning(@"[ZZLocalize] Bad line at %@:%d", fileName, i);
+            ZZLocalizeCWarn("bad line at %@:%d", fileName, i);
             continue;
         }
         NSString *key = translation[0];
@@ -82,13 +94,13 @@ extern void ZZLocalizeInitWithOptionsAndFileName(ZZLocalizeOptions options, NSSt
             GLocalizationDict[key] = value;
         }
 
-        if (useFallbackLanguage) {
-            NSString *fallbackValue = TrimQuotesFromValue(translation[1]);
-            if ([fallbackValue length]) {
-                GLocalizationFallbackDict[key] = fallbackValue;
-            }
+        NSString *fallbackValue = TrimQuotesFromValue(translation[1]);
+        if ([fallbackValue length]) {
+            GLocalizationFallbackDict[key] = fallbackValue;
         }
     }
+
+    return YES;
 }
 
 NSString * ZZLocalize(NSString *key)
@@ -98,9 +110,9 @@ NSString * ZZLocalize(NSString *key)
     if (result == nil) {
         result = GLocalizationFallbackDict[key];
         if (result) {
-            LogCWarning(@"[ZZLocalize] Missing translation for key '%@'. Using value for default language.", key);
+            ZZLocalizeCWarn(@"missing translation for key '%@'. Using value for default language.", key);
         } else {
-            LogCWarning(@"[ZZLocalize] Missing translation for key '%@'.", key);
+            ZZLocalizeCWarn(@"missing translation for key '%@'.", key);
         }
     }
 
